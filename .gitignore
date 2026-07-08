@@ -1,0 +1,13 @@
+node_modules
+.DS_Store
+dist
+*.local
+*.img
+*.map
+*.sqlite
+*.db
+logs/
+reports/
+recovered/
+raw_recovered/
+source_metadata.json
