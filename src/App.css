@@ -24,7 +24,8 @@ button { font: inherit; }
 .app-shell { width: min(1440px, 100%); margin: 0 auto; padding: 24px; }
 .hero { display: grid; grid-template-columns: 1fr 360px; gap: 22px; align-items: stretch; margin-bottom: 20px; }
 .hero > div:first-child, .status-panel, .panel, .stat-card { border: 1px solid var(--line); background: linear-gradient(135deg, rgba(16, 32, 58, .88), rgba(10, 18, 32, .78)); box-shadow: 0 20px 60px rgba(0, 0, 0, .32); backdrop-filter: blur(18px); border-radius: 28px; }
-.hero > div:first-child { padding: 34px; min-height: 250px; display: flex; flex-direction: column; justify-content: center; }
+.hero > div:first-child { padding: 34px; min-height: 190px; display: flex; flex-direction: column; justify-content: center; }
+.compact-hero h1 { font-size: clamp(34px, 5vw, 62px); }
 .eyebrow { color: var(--cyan); text-transform: uppercase; letter-spacing: .18em; font-size: 12px; font-weight: 800; margin: 0 0 12px; }
 h1 { margin: 0; font-size: clamp(40px, 6vw, 76px); line-height: .91; letter-spacing: -0.06em; max-width: 880px; }
 .hero-copy { color: #b8c8df; max-width: 760px; font-size: 18px; line-height: 1.55; margin: 20px 0 0; }
@@ -56,7 +57,8 @@ h1 { margin: 0; font-size: clamp(40px, 6vw, 76px); line-height: .91; letter-spac
 .health.warning, .health.gated { color: var(--yellow); }
 .health.failing { color: var(--red); }
 .drive-card h3 { margin: 18px 0 4px; font-size: 19px; }
-.drive-card p { color: var(--muted); margin: 0 0 16px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+.drive-card p { color: var(--muted); margin: 0 0 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+.drive-card code { display: block; color: #e9f6ff; background: rgba(87, 216, 255, .08); border: 1px solid rgba(87, 216, 255, .16); padding: 9px 10px; border-radius: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; margin-bottom: 14px; overflow-wrap: anywhere; }
 .drive-meta { color: #b7c7de; font-size: 13px; }
 .bar { height: 8px; background: rgba(255,255,255,.08); border-radius: 999px; overflow: hidden; margin-top: 16px; }
 .bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cyan), var(--purple)); }
@@ -64,6 +66,9 @@ h1 { margin: 0; font-size: clamp(40px, 6vw, 76px); line-height: .91; letter-spac
 .gate-list li { padding: 14px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid var(--line); color: #c9d8eb; }
 .gate-list .done { color: #d9ffed; border-color: rgba(85, 240, 165, .22); }
 .gate-list .locked { color: #ffe9b0; border-color: rgba(255, 209, 102, .25); }
+.naming-list li { display: grid; gap: 8px; }
+.naming-list b { color: #eaf4ff; }
+.naming-list code { display: block; color: #d9efff; background: rgba(0,0,0,.18); padding: 9px 10px; border-radius: 10px; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .pipeline { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
 .pipeline li { display: grid; grid-template-columns: 38px 1fr; gap: 12px; align-items: start; color: #b9cae1; }
 .pipeline b { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 14px; background: rgba(255,255,255,.08); color: #fff; }
