@@ -10,7 +10,7 @@ type Drive = {
   model: string
   genericName: string
   device: string
-  advertisedMb: string
+  advertisedGb: string
   serialTail: string
   health: 'Healthy' | 'Warning' | 'Failing' | 'Fast' | 'Gated'
   temp: string
@@ -25,10 +25,10 @@ type Event = {
 }
 
 const drives: Drive[] = [
-  { id: 'd1', role: 'Source', brand: 'WD', model: 'Book 6TB', genericName: 'WD Book', device: '/dev/sdb', advertisedMb: '6000000', serialTail: '1482A', health: 'Warning', temp: '41°C', readonly: true, used: 92 },
-  { id: 'd2', role: 'Image Target', brand: 'WD', model: 'Book 8TB', genericName: 'WD Book', device: '/mnt/recovery8', advertisedMb: '8000000', serialTail: '92F10', health: 'Healthy', temp: '37°C', used: 76 },
-  { id: 'd3', role: 'USB Bay', brand: 'Thermaltake', model: 'BlacX dock', genericName: 'Generic External', device: 'bay profile: annoying generic names', advertisedMb: 'variable', serialTail: 'probe', health: 'Gated', temp: '--', used: 0 },
-  { id: 'd4', role: 'Apollo NVMe', brand: 'Samsung', model: 'NVMe', genericName: 'Samsung NVMe', device: '/', advertisedMb: '468000', serialTail: '65302', health: 'Fast', temp: '34°C', used: 27 },
+  { id: 'd1', role: 'Source', brand: 'WD', model: 'Book 6TB', genericName: 'WD Book', device: '/dev/sdb', advertisedGb: '6000', serialTail: '1482A', health: 'Warning', temp: '41°C', readonly: true, used: 92 },
+  { id: 'd2', role: 'Image Target', brand: 'WD', model: 'Book 8TB', genericName: 'WD Book', device: '/mnt/recovery8', advertisedGb: '8000', serialTail: '92F10', health: 'Healthy', temp: '37°C', used: 76 },
+  { id: 'd3', role: 'USB Bay', brand: 'Thermaltake', model: 'BlacX dock', genericName: 'Generic External', device: 'bay profile: annoying generic names', advertisedGb: 'variable', serialTail: 'probe', health: 'Gated', temp: '--', used: 0 },
+  { id: 'd4', role: 'Apollo NVMe', brand: 'Samsung', model: 'NVMe', genericName: 'Samsung NVMe', device: '/', advertisedGb: '512', serialTail: '65302', health: 'Fast', temp: '34°C', used: 27 },
 ]
 
 const events: Event[] = [
@@ -54,7 +54,7 @@ const workers = [
 ]
 
 function diskDirectory(drive: Drive) {
-  return `${drive.advertisedMb}_${drive.brand}_${drive.serialTail}`
+  return `${drive.advertisedGb}_${drive.brand}_${drive.serialTail}`
 }
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub: string }) {
@@ -74,7 +74,7 @@ function DriveCard({ drive }: { drive: Drive }) {
         <span className="role">{drive.role}</span>
         <span className={`health ${drive.health.toLowerCase()}`}>{drive.health}</span>
       </div>
-      <h3>{drive.advertisedMb} MB · {drive.brand}</h3>
+      <h3>{drive.advertisedGb} GB · {drive.brand}</h3>
       <p>{drive.genericName} · {drive.device}</p>
       <code>{diskDirectory(drive)}</code>
       <div className="drive-meta">
@@ -127,7 +127,7 @@ function App() {
         <div className="panel">
           <div className="panel-title"><h2>Naming Rules</h2><span>ledger enforced</span></div>
           <ul className="gate-list naming-list">
-            <li><b>Disk directory</b><code>&lt;advertised MB&gt;_&lt;Brand&gt;_&lt;S/N last 5&gt;</code></li>
+            <li><b>Disk directory</b><code>&lt;advertised GB&gt;_&lt;Brand&gt;_&lt;S/N last 5&gt;</code></li>
             <li><b>Recovered file</b><code>&lt;oldest date&gt;_&lt;time&gt;_&lt;disk id&gt;_&lt;Corrupt?&gt;_&lt;hash last 5&gt;</code></li>
             <li><b>Collision handling</b><code>append ledger sequence only if needed</code></li>
           </ul>
