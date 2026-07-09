@@ -34,7 +34,7 @@ h1 { margin: 0; font-size: clamp(40px, 6vw, 76px); line-height: .91; letter-spac
 .status-panel small { color: var(--muted); line-height: 1.5; }
 .status-panel button { border: 0; background: #e5f0ff; color: #07101d; border-radius: 999px; padding: 14px 18px; font-weight: 800; cursor: pointer; }
 .pulse { width: 18px; height: 18px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 10px rgba(85, 240, 165, .11); animation: pulse 1.6s infinite; }
-.pulse.paused { background: var(--yellow); box-shadow: 0 0 0 10px rgba(255, 209, 102, .11); animation: none; }
+.pulse.paused, .pulse.standby, .pulse.scanning { background: var(--yellow); box-shadow: 0 0 0 10px rgba(255, 209, 102, .11); animation: none; }
 @keyframes pulse { 50% { transform: scale(.72); opacity: .6; } }
 
 .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
@@ -48,8 +48,13 @@ h1 { margin: 0; font-size: clamp(40px, 6vw, 76px); line-height: .91; letter-spac
 .panel.large, .panel.wide { min-width: 0; }
 .panel-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .panel-title h2 { margin: 0; font-size: 24px; letter-spacing: -.04em; }
-.drive-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.drive-grid, .empty-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .drive-card { background: rgba(255,255,255,.035); border: 1px solid var(--line); border-radius: 20px; padding: 18px; }
+.empty-panel { background: rgba(255,255,255,.03); border: 1px dashed rgba(146, 174, 214, .28); border-radius: 20px; padding: 18px; min-height: 150px; display: flex; flex-direction: column; justify-content: center; }
+.empty-panel span { color: var(--cyan); font-size: 12px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+.empty-panel h3 { margin: 10px 0 8px; font-size: 19px; }
+.empty-panel p { margin: 0; color: var(--muted); line-height: 1.45; }
+.empty-panel.full-width { min-height: 0; }
 .drive-topline, .drive-meta { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
 .role { color: var(--cyan); font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; }
 .health { font-size: 12px; font-weight: 900; padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,.08); }
@@ -91,7 +96,7 @@ footer strong { color: #eaf4ff; }
 @media (max-width: 980px) {
   .app-shell { padding: 14px; }
   .hero, .layout-grid, .layout-grid.bottom, .stats-grid { grid-template-columns: 1fr; }
-  .drive-grid { grid-template-columns: 1fr; }
+  .drive-grid, .empty-grid { grid-template-columns: 1fr; }
   .hero > div:first-child { padding: 24px; min-height: auto; }
   .status-panel { gap: 22px; }
   .row { grid-template-columns: 1fr; gap: 4px; }
