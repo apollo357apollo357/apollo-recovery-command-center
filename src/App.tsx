@@ -1,13 +1,34 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import './App.css'
+import categoryConfig from './config/fileCategories.json'
 
 type JobStatus = 'standby' | 'scanning' | 'running' | 'paused' | 'gated'
+
+type Category = {
+  id: string
+  label: string
+  destination: string
+  rawExtensions: string[]
+  extensions: string[]
+}
 
 const workers = [
   ['0-1', 'System + UI reserve', 'keeps Apollo responsive'],
   ['2-3', 'ddrescue / ingest', 'sequential read + mapfile monitor'],
   ['4-5', 'hash + validation', 'BLAKE3/SHA + media integrity checks'],
   ['6-7', 'sort + copy queue', 'rename, dedupe, archive to target disk'],
+]
+
+const safeguards = [
+  'No automatic deletion',
+  'No extension dropped',
+  'Content inspection before extension fallback',
+  'Original archives preserved',
+  'Configurable destination for every category',
+  'Corrupt and valid files routed separately',
+  'Move only after file size and modification time stabilize',
+  'Verified copy before staged source cleanup',
+  'Ambiguous extensions visible and content-resolved',
 ]
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub: string }) {
@@ -18,10 +39,6 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub: st
       <small>{sub}</small>
     </section>
   )
-}
-
-function Gate({ done, text }: { done: boolean; text: string }) {
-  return <li className={done ? 'done' : 'locked'}>{done ? '✓' : '⛔'} {text}</li>
 }
 
 function EmptyPanel({ title, label, text }: { title: string; label: string; text: string }) {
@@ -36,6 +53,19 @@ function EmptyPanel({ title, label, text }: { title: string; label: string; text
 
 function App() {
   const [status, setStatus] = useState<JobStatus>('standby')
+  const categories = categoryConfig.categories as Category[]
+  const [destinations, setDestinations] = useState<Record<string, string>>(
+    Object.fromEntries(categories.map(category => [category.id, category.destination]))
+  )
+  const [enabled, setEnabled] = useState<Record<string, boolean>>(
+    Object.fromEntries(categories.map(category => [category.id, true]))
+  )
+  const [expanded, setExpanded] = useState<string | null>(null)
+
+  const conflicts = useMemo(
+    () => Object.entries(categoryConfig.ambiguousExtensions) as [string, string[]][],
+    []
+  )
 
   return (
     <main className="app-shell">
@@ -56,7 +86,7 @@ function App() {
       <section className="stats-grid">
         <StatCard label="Image rescued" value="--" sub="waiting for ddrescue job" />
         <StatCard label="Bad areas" value="--" sub="waiting for mapfile" />
-        <StatCard label="Read rate" value="--" sub="waiting for active source" />
+        <StatCard label="Extension registry" value={`${categoryConfig.importSummary.uniqueCategoryExtensions}`} sub={`${categoryConfig.importSummary.rawCategoryEntries} imported entries retained`} />
         <StatCard label="CPU plan" value="8 threads" sub="workers pinned by role, not all on 0/1" />
       </section>
 
@@ -76,20 +106,80 @@ function App() {
           <ul className="gate-list naming-list">
             <li><b>Disk directory</b><code>&lt;advertised GB&gt;_&lt;Brand&gt;_&lt;S/N last 5&gt;</code></li>
             <li><b>Recovered file</b><code>&lt;oldest date&gt;_&lt;time&gt;_&lt;disk id&gt;_&lt;Corrupt?&gt;_&lt;hash last 5&gt;</code></li>
-            <li><b>Collision handling</b><code>append ledger sequence only if needed</code></li>
+            <li><b>Output layout</b><code>&lt;category&gt;/&lt;year&gt;/</code></li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="panel sorting-panel">
+        <div className="panel-title"><h2>Sorting Destinations</h2><span>category / year</span></div>
+        <div className="category-list">
+          {categories.map(category => (
+            <article className="category-row" key={category.id}>
+              <div className="category-heading">
+                <label className="switch-label">
+                  <input
+                    type="checkbox"
+                    checked={enabled[category.id]}
+                    onChange={event => setEnabled({ ...enabled, [category.id]: event.target.checked })}
+                  />
+                  <strong>{category.label}</strong>
+                </label>
+                <span>{category.extensions.length ? `${category.extensions.length} unique extensions` : 'routing destination'}</span>
+              </div>
+              <div className="destination-line">
+                <input
+                  aria-label={`${category.label} destination`}
+                  value={destinations[category.id]}
+                  onChange={event => setDestinations({ ...destinations, [category.id]: event.target.value })}
+                  placeholder="Choose or enter destination path"
+                  disabled={!enabled[category.id]}
+                />
+                <code>/&lt;year&gt;/</code>
+                {category.extensions.length > 0 && (
+                  <button onClick={() => setExpanded(expanded === category.id ? null : category.id)}>
+                    {expanded === category.id ? 'Hide extensions' : 'View extensions'}
+                  </button>
+                )}
+              </div>
+              {expanded === category.id && (
+                <div className="extension-tray">
+                  <p>{category.rawExtensions.length} imported entries · {category.extensions.length} unique · source order retained</p>
+                  <div>{category.extensions.map(extension => <span key={extension}>{extension}</span>)}</div>
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="layout-grid bottom">
+        <div className="panel">
+          <div className="panel-title"><h2>Ambiguous Extensions</h2><span>{conflicts.length} conflicts</span></div>
+          <div className="conflict-list">
+            {conflicts.map(([extension, routes]) => (
+              <p key={extension}><code>{extension}</code><span>{routes.join(' / ')}</span></p>
+            ))}
+          </div>
+          <small className="panel-note">Real routing inspects content first. Extension priority is only the fallback.</small>
+        </div>
+
+        <div className="panel wide">
+          <div className="panel-title"><h2>Recovery Safeguards</h2><span>confirmed policy</span></div>
+          <ul className="policy-grid">
+            {safeguards.map(policy => <li key={policy}>✓ {policy}</li>)}
           </ul>
         </div>
       </section>
 
       <section className="layout-grid bottom">
         <div className="panel">
-          <div className="panel-title"><h2>Safety Gates</h2><span>hard stops</span></div>
-          <ul className="gate-list">
-            <Gate done={false} text="Source set read-only before imaging" />
-            <Gate done={false} text="Generic USB dock requires manual disk ID confirmation" />
-            <Gate done={false} text="ddrescue mapfile mirrored to Apollo NVMe" />
-            <Gate done={false} text="Image metadata readable by TestDisk" />
-            <Gate done={false} text="User typed confirmation to repurpose source" />
+          <div className="panel-title"><h2>SQLite Ledger</h2><span>batched WAL mode</span></div>
+          <ul className="gate-list naming-list">
+            <li><b>Record material transitions only</b><code>discovered → hashed → classified → validated → copied → verified</code></li>
+            <li><b>Batch transactions</b><code>flush by record count or short time interval</code></li>
+            <li><b>Do not log noisy progress</b><code>rates and counters stay in memory; checkpoints are periodic</code></li>
+            <li><b>Crash recovery</b><code>WAL + idempotent job state + resumable queues</code></li>
           </ul>
         </div>
 
@@ -113,7 +203,7 @@ function App() {
             <li><b>2</b><div><strong>ddrescue image</strong><small>Sequential read from failing/unknown source.</small></div></li>
             <li><b>3</b><div><strong>verify image</strong><small>Partition scan, TestDisk sanity check, map summary.</small></div></li>
             <li><b>4</b><div><strong>PhotoRec carve</strong><small>Run from image, never from repurposed source.</small></div></li>
-            <li><b>5</b><div><strong>simultaneous sort</strong><small>Ryan’s sort scripts run beside validation and copy queues.</small></div></li>
+            <li><b>5</b><div><strong>simultaneous sort</strong><small>Stable files route to configured category/year destinations.</small></div></li>
           </ol>
         </div>
 
@@ -122,22 +212,22 @@ function App() {
           <div className="empty-panel full-width">
             <span>NO FILES INDEXED</span>
             <h3>Validation starts after ingest</h3>
-            <p>Real mode will show image, video, audio, PDF, archive, document, hash, duplicate, and corruption queues here.</p>
+            <p>Real mode will show content detection, integrity validation, hash, duplicate, archive, password, and corruption queues here.</p>
           </div>
         </div>
       </section>
 
       <section className="panel timeline-panel">
-        <div className="panel-title"><h2>Event Ledger</h2><span>append-only recovery history</span></div>
+        <div className="panel-title"><h2>Event Ledger</h2><span>material state changes only</span></div>
         <div className="empty-panel full-width">
           <span>NO EVENTS</span>
           <h3>Waiting for local backend</h3>
-          <p>Device scans, safety gates, job state changes, file renames, validation results, and copy operations will be recorded here.</p>
+          <p>SQLite receives batched state transitions and errors. High-frequency progress counters remain in memory and are periodically checkpointed.</p>
         </div>
       </section>
 
       <footer>
-        <strong>Demo mode:</strong> GitHub Pages is interface-only. Real mode will run locally on Apollo with FastAPI workers, CPU affinity controls, disk identity gates, and your sorting scripts.
+        <strong>Demo mode:</strong> destination edits are local UI state only. Real mode will persist configuration through Apollo’s local backend.
       </footer>
     </main>
   )
