@@ -31,6 +31,58 @@ const safeguards = [
   'Ambiguous extensions visible and content-resolved',
 ]
 
+const workflowSections = [
+  {
+    id: 'identify',
+    title: 'Disk Identification',
+    detail: 'Start runs the complete identity and safety sequence for attached disks.',
+    steps: ['scan devices', 'resolve advertised GB + brand + serial tail', 'record identity', 'apply read-only gate'],
+    fields: [
+      ['deviceRoot', 'Device root or scan path'],
+      ['identityDirectory', 'Identity reports directory'],
+      ['smartDirectory', 'SMART reports directory'],
+      ['sectionLogDirectory', 'Section log directory'],
+    ],
+  },
+  {
+    id: 'imaging',
+    title: 'ddrescue Imaging',
+    detail: 'Start runs every imaging step in this section, but does not start PhotoRec.',
+    steps: ['verify source identity', 'lock source read-only', 'initial ddrescue pass', 'retry passes', 'verify image + mapfile'],
+    fields: [
+      ['sourcePath', 'Source device or image path'],
+      ['imageDirectory', 'Disk image directory'],
+      ['mapfileDirectory', 'ddrescue mapfile directory'],
+      ['sectionLogDirectory', 'Section log directory'],
+    ],
+  },
+  {
+    id: 'photorec',
+    title: 'PhotoRec + File Sorting',
+    detail: 'Start here runs PhotoRec and its entire downstream sorting pipeline. It does not start ddrescue.',
+    steps: ['PhotoRec carve', 'stable-file watcher', 'content identification', 'integrity validation', 'hash + rename', 'category/year routing', 'verified destination copy'],
+    fields: [
+      ['recoverySource', 'PhotoRec source device or image path'],
+      ['rawRecoveryDirectory', 'Raw PhotoRec output directory'],
+      ['stagingDirectory', 'Stable-file staging directory'],
+      ['ledgerDirectory', 'SQLite ledger directory'],
+      ['sectionLogDirectory', 'Section log directory'],
+    ],
+  },
+  {
+    id: 'existing-files',
+    title: 'Existing Files + Sorting',
+    detail: 'Start here skips PhotoRec and processes files already present in the selected source directory.',
+    steps: ['scan source directory', 'stable-file check', 'content identification', 'integrity validation', 'hash + rename', 'category/year routing', 'verified destination copy'],
+    fields: [
+      ['existingSourceDirectory', 'Existing files source directory'],
+      ['stagingDirectory', 'Stable-file staging directory'],
+      ['ledgerDirectory', 'SQLite ledger directory'],
+      ['sectionLogDirectory', 'Section log directory'],
+    ],
+  },
+] as const
+
 function StatCard({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <section className="stat-card empty-card">
@@ -53,6 +105,8 @@ function EmptyPanel({ title, label, text }: { title: string; label: string; text
 
 function App() {
   const [status, setStatus] = useState<JobStatus>('standby')
+  const [activeSection, setActiveSection] = useState<string | null>(null)
+  const [workflowPaths, setWorkflowPaths] = useState<Record<string, string>>({})
   const categories = categoryConfig.categories as Category[]
   const [destinations, setDestinations] = useState<Record<string, string>>(
     Object.fromEntries(categories.map(category => [category.id, category.destination]))
@@ -77,9 +131,13 @@ function App() {
         </div>
         <div className="status-panel">
           <span className={`pulse ${status}`} />
-          <strong>{status}</strong>
-          <small>No devices loaded in demo mode. Real mode will populate this from Apollo’s local backend.</small>
-          <button onClick={() => setStatus(status === 'standby' ? 'scanning' : 'standby')}>{status === 'standby' ? 'Simulate scan state' : 'Return to standby'}</button>
+          <strong>{activeSection ? `${activeSection} running` : status}</strong>
+          <small>Each Start button runs every step inside that section only. Sections never silently trigger other sections.</small>
+          {activeSection ? (
+            <button onClick={() => { setActiveSection(null); setStatus('standby') }}>Stop demo state</button>
+          ) : (
+            <span className="status-note">Configure paths below, then start the section you want.</span>
+          )}
         </div>
       </header>
 
@@ -88,6 +146,59 @@ function App() {
         <StatCard label="Bad areas" value="--" sub="waiting for mapfile" />
         <StatCard label="Extension registry" value={`${categoryConfig.importSummary.uniqueCategoryExtensions}`} sub={`${categoryConfig.importSummary.rawCategoryEntries} imported entries retained`} />
         <StatCard label="CPU plan" value="8 threads" sub="workers pinned by role, not all on 0/1" />
+      </section>
+
+      <section className="panel workflow-control">
+        <div className="panel-title"><h2>Workflow Sections</h2><span>start is section-scoped</span></div>
+        <div className="workflow-section-list">
+          {workflowSections.map(section => {
+            const isRunning = activeSection === section.id
+            return (
+              <article className={`workflow-section ${isRunning ? 'active' : ''}`} key={section.id}>
+                <div className="workflow-section-header">
+                  <div>
+                    <span>SECTION</span>
+                    <h3>{section.title}</h3>
+                    <p>{section.detail}</p>
+                  </div>
+                  <button
+                    className="start-section"
+                    disabled={activeSection !== null && !isRunning}
+                    onClick={() => {
+                      if (isRunning) {
+                        setActiveSection(null)
+                        setStatus('standby')
+                      } else {
+                        setActiveSection(section.id)
+                        setStatus('running')
+                      }
+                    }}
+                  >
+                    {isRunning ? 'Stop section' : 'Start section'}
+                  </button>
+                </div>
+                <div className="section-steps">
+                  {section.steps.map((step, index) => <span key={step}><b>{index + 1}</b>{step}</span>)}
+                </div>
+                <div className="path-grid">
+                  {section.fields.map(([field, label]) => {
+                    const key = `${section.id}:${field}`
+                    return (
+                      <label key={key}>
+                        <span>{label}</span>
+                        <input
+                          value={workflowPaths[key] ?? ''}
+                          onChange={event => setWorkflowPaths({ ...workflowPaths, [key]: event.target.value })}
+                          placeholder="Enter path manually"
+                        />
+                      </label>
+                    )
+                  })}
+                </div>
+              </article>
+            )
+          })}
+        </div>
       </section>
 
       <section className="layout-grid">
