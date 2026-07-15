@@ -1,8 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import categoryConfig from './config/fileCategories.json'
-
-type JobStatus = 'standby' | 'scanning' | 'running' | 'paused' | 'gated'
 
 type Category = {
   id: string
@@ -83,6 +81,24 @@ const workflowSections = [
   },
 ] as const
 
+function loadSavedRecord(key: string, fallback: Record<string, string>) {
+  try {
+    const saved = localStorage.getItem(key)
+    return saved ? { ...fallback, ...JSON.parse(saved) } : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function loadSavedFlags(key: string, fallback: Record<string, boolean>) {
+  try {
+    const saved = localStorage.getItem(key)
+    return saved ? { ...fallback, ...JSON.parse(saved) } : fallback
+  } catch {
+    return fallback
+  }
+}
+
 function StatCard({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <section className="stat-card empty-card">
@@ -104,15 +120,22 @@ function EmptyPanel({ title, label, text }: { title: string; label: string; text
 }
 
 function App() {
-  const [status, setStatus] = useState<JobStatus>('standby')
-  const [activeSection, setActiveSection] = useState<string | null>(null)
-  const [workflowPaths, setWorkflowPaths] = useState<Record<string, string>>({})
   const categories = categoryConfig.categories as Category[]
-  const [destinations, setDestinations] = useState<Record<string, string>>(
-    Object.fromEntries(categories.map(category => [category.id, category.destination]))
+  const [activeSections, setActiveSections] = useState<string[]>([])
+  const [workflowPaths, setWorkflowPaths] = useState<Record<string, string>>(() =>
+    loadSavedRecord('ghost-ledger.workflow-paths.v1', {})
   )
-  const [enabled, setEnabled] = useState<Record<string, boolean>>(
-    Object.fromEntries(categories.map(category => [category.id, true]))
+  const [destinations, setDestinations] = useState<Record<string, string>>(() =>
+    loadSavedRecord(
+      'ghost-ledger.destinations.v1',
+      Object.fromEntries(categories.map(category => [category.id, category.destination]))
+    )
+  )
+  const [enabled, setEnabled] = useState<Record<string, boolean>>(() =>
+    loadSavedFlags(
+      'ghost-ledger.categories-enabled.v1',
+      Object.fromEntries(categories.map(category => [category.id, true]))
+    )
   )
   const [expanded, setExpanded] = useState<string | null>(null)
 
@@ -120,6 +143,20 @@ function App() {
     () => Object.entries(categoryConfig.ambiguousExtensions) as [string, string[]][],
     []
   )
+
+  useEffect(() => {
+    localStorage.setItem('ghost-ledger.workflow-paths.v1', JSON.stringify(workflowPaths))
+  }, [workflowPaths])
+
+  useEffect(() => {
+    localStorage.setItem('ghost-ledger.destinations.v1', JSON.stringify(destinations))
+  }, [destinations])
+
+  useEffect(() => {
+    localStorage.setItem('ghost-ledger.categories-enabled.v1', JSON.stringify(enabled))
+  }, [enabled])
+
+  const status = activeSections.length > 0 ? 'running' : 'standby'
 
   return (
     <main className="app-shell">
@@ -131,10 +168,10 @@ function App() {
         </div>
         <div className="status-panel">
           <span className={`pulse ${status}`} />
-          <strong>{activeSection ? `${activeSection} running` : status}</strong>
-          <small>Each Start button runs every step inside that section only. Sections never silently trigger other sections.</small>
-          {activeSection ? (
-            <button onClick={() => { setActiveSection(null); setStatus('standby') }}>Stop demo state</button>
+          <strong>{activeSections.length ? `${activeSections.length} section${activeSections.length === 1 ? '' : 's'} running` : status}</strong>
+          <small>Each Start button runs every step inside that section only. Independent sections may run simultaneously.</small>
+          {activeSections.length ? (
+            <button onClick={() => setActiveSections([])}>Stop all demo states</button>
           ) : (
             <span className="status-note">Configure paths below, then start the section you want.</span>
           )}
@@ -145,14 +182,20 @@ function App() {
         <StatCard label="Image rescued" value="--" sub="waiting for ddrescue job" />
         <StatCard label="Bad areas" value="--" sub="waiting for mapfile" />
         <StatCard label="Extension registry" value={`${categoryConfig.importSummary.uniqueCategoryExtensions}`} sub={`${categoryConfig.importSummary.rawCategoryEntries} imported entries retained`} />
-        <StatCard label="CPU plan" value="8 threads" sub="workers pinned by role, not all on 0/1" />
+        <StatCard label="PhotoRec" value="7.2" sub="official stable release installed on Apollo" />
       </section>
 
       <section className="panel workflow-control">
         <div className="panel-title"><h2>Workflow Sections</h2><span>start is section-scoped</span></div>
         <div className="workflow-section-list">
           {workflowSections.map(section => {
-            const isRunning = activeSection === section.id
+            const isRunning = activeSections.includes(section.id)
+            const missingSectionPaths = section.fields.filter(([field]) => !workflowPaths[`${section.id}:${field}`]?.trim()).length
+            const needsSortingDestinations = section.id === 'photorec' || section.id === 'existing-files'
+            const missingDestinations = needsSortingDestinations
+              ? categories.filter(category => enabled[category.id] && !destinations[category.id]?.trim()).length
+              : 0
+            const missingRequired = missingSectionPaths + missingDestinations
             return (
               <article className={`workflow-section ${isRunning ? 'active' : ''}`} key={section.id}>
                 <div className="workflow-section-header">
@@ -163,20 +206,21 @@ function App() {
                   </div>
                   <button
                     className="start-section"
-                    disabled={activeSection !== null && !isRunning}
+                    disabled={!isRunning && missingRequired > 0}
                     onClick={() => {
                       if (isRunning) {
-                        setActiveSection(null)
-                        setStatus('standby')
+                        setActiveSections(activeSections.filter(id => id !== section.id))
                       } else {
-                        setActiveSection(section.id)
-                        setStatus('running')
+                        setActiveSections([...activeSections, section.id])
                       }
                     }}
                   >
                     {isRunning ? 'Stop section' : 'Start section'}
                   </button>
                 </div>
+                {missingRequired > 0 && !isRunning && (
+                  <p className="path-warning">{missingRequired} required path{missingRequired === 1 ? '' : 's'} missing. Enter every path before Start is enabled.</p>
+                )}
                 <div className="section-steps">
                   {section.steps.map((step, index) => <span key={step}><b>{index + 1}</b>{step}</span>)}
                 </div>
@@ -215,7 +259,7 @@ function App() {
         <div className="panel">
           <div className="panel-title"><h2>Naming Rules</h2><span>ledger enforced</span></div>
           <ul className="gate-list naming-list">
-            <li><b>Disk directory</b><code>&lt;advertised GB&gt;_&lt;Brand&gt;_&lt;S/N last 5&gt;</code></li>
+            <li><b>Disk directory</b><code>&lt;advertised GB&gt;_Disk &lt;Brand&gt;_&lt;S/N last 5&gt;</code></li>
             <li><b>Recovered file</b><code>&lt;oldest date&gt;_&lt;time&gt;_&lt;disk id&gt;_&lt;Corrupt?&gt;_&lt;hash last 5&gt;</code></li>
             <li><b>Output layout</b><code>&lt;category&gt;/&lt;year&gt;/</code></li>
           </ul>
